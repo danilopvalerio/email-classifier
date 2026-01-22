@@ -174,10 +174,19 @@ export default function Home() {
         }
       } else {
         const data = (await res.json()) as BatchApiResponse;
-        const mappedResults = data.results.map((res, index) => ({
-          ...res,
-          original_preview: cards[index]?.body || res.original_preview,
-        }));
+
+        // ALTERAÇÃO AQUI:
+        // No modo Batch, usamos o state 'cards' como fonte da verdade do texto original.
+        // No modo Files, usamos o 'original_preview' que vem da API (já que não temos o texto no state).
+        const mappedResults = data.results.map((res, index) => {
+          const bodyFromContext =
+            mode === "batch" ? cards[index]?.body : undefined;
+          return {
+            ...res,
+            original_preview: bodyFromContext || res.original_preview,
+          };
+        });
+
         setResults(mappedResults);
       }
       setServerStatus("ready");

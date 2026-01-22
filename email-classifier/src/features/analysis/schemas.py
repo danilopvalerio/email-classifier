@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Optional
 
 class EmailInput(BaseModel):
     id: str | int = Field(...)
@@ -8,4 +9,5 @@ class EmailInput(BaseModel):
 class AnalysisResult(BaseModel):
     category: str
     suggested_response: str
+    body: Optional[str] = None
     confidence: float | None = None

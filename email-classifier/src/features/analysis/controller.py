@@ -46,9 +46,10 @@ class AnalysisController:
                         final_response.append({
                             "id": inp.id,
                             "original_subject": inp.subject,
-                            "original_preview": inp.body[:60] + "...",
+                            # ALTERAÇÃO AQUI: Enviamos o corpo completo, não cortado
+                            "original_preview": inp.body, 
                             "category": res.get("category"),
-                            "suggested_response": res.get("suggested_response") # CSV ok
+                            "suggested_response": res.get("suggested_response")
                         })
                 except Exception as e:
                     raise HTTPException(400, f"Erro ao ler CSV: {str(e)}")
@@ -76,7 +77,8 @@ class AnalysisController:
                         final_response.append({
                             "id": f"pdf-{i+1}",
                             "original_subject": res.get("subject"),
-                            "original_preview": res.get("original_preview"),
+                            # A IA já retorna o trecho identificado como preview/body
+                            "original_preview": res.get("original_preview"), 
                             "category": res.get("category"),
                             "suggested_response": res.get("response") 
                         })
