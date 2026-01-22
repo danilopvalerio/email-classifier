@@ -1,5 +1,7 @@
 # 📧 Email AI Classifier API - Desafio AutoU
 
+Link do projeto em deploy: email-classifier-fawn.vercel.app
+
 > **Backend** desenvolvido como parte do desafio técnico para o processo seletivo da **AutoU**.
 
 Uma API RESTful robusta e assíncrona construída para triagem automática de emails corporativos utilizando Inteligência Artificial Generativa (Llama 3 via Groq). O sistema classifica mensagens em "Produtivo" ou "Improdutivo" e sugere respostas adequadas ao contexto.
