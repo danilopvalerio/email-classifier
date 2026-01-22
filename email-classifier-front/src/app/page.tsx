@@ -9,6 +9,7 @@ import {
   Loader2,
   FileText,
   UploadCloud,
+  RefreshCw,
 } from "lucide-react";
 import {
   AppMode,
@@ -29,9 +30,11 @@ export default function Home() {
   const [mode, setMode] = useState<AppMode>("single");
   const [loading, setLoading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+
   const [serverStatus, setServerStatus] = useState<
     "checking" | "ready" | "error"
   >("checking");
+  const [retryKey, setRetryKey] = useState(0);
 
   const [cards, setCards] = useState<EmailForm[]>([
     { id: "1", subject: "", body: "", senderName: "" },
@@ -44,40 +47,45 @@ export default function Home() {
   });
   const [results, setResults] = useState<AnalysisResult[]>([]);
 
-  // LÓGICA DE HEALTH CHECK (Tentativa infinita a cada 10s)
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     let isMounted = true;
 
-    const checkHealth = async () => {
+    const checkHealth = async (attempt = 1) => {
       try {
         const res = await fetch(`${API_BASE}/analysis/health`);
 
         if (res.ok) {
           if (isMounted) setServerStatus("ready");
-          // Sucesso! Não chamamos o timeout novamente, paramos aqui.
           return;
         } else {
           throw new Error("Status not ok");
         }
       } catch {
-        // Se der erro (servidor offline ou acordando):
-        if (isMounted) {
-          // Mantém como 'checking' (ou mude para 'error' se quiser feedback visual imediato)
-          // Tenta novamente em 10 segundos (10000 ms)
-          timeoutId = setTimeout(checkHealth, 10000);
+        if (!isMounted) return;
+
+        if (attempt <= 5) {
+          timeoutId = setTimeout(() => checkHealth(attempt + 1), 2000);
+        } else if (attempt <= 25) {
+          timeoutId = setTimeout(() => checkHealth(attempt + 1), 10000);
+        } else {
+          setServerStatus("error");
         }
       }
     };
 
-    // Primeira chamada imediata
+    setServerStatus("checking");
     checkHealth();
 
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, []);
+  }, [retryKey]);
+
+  const handleManualRetry = () => {
+    setRetryKey((prev) => prev + 1);
+  };
 
   const addCard = () =>
     setCards([
@@ -260,22 +268,32 @@ export default function Home() {
             )}
           </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={loading || serverStatus !== "ready" || !isFormValid()}
-            className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold py-4 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" /> Processando...
-              </>
-            ) : (
-              <>
-                <Send className="w-5 h-5" />{" "}
-                {mode === "files" ? "Analisar Arquivo" : "Classificar Emails"}
-              </>
-            )}
-          </button>
+          {serverStatus === "error" ? (
+            <button
+              onClick={handleManualRetry}
+              className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/50 font-semibold py-4 rounded-xl shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.99]"
+            >
+              <RefreshCw className="w-5 h-5" /> Servidor Offline. Tentar
+              Novamente?
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={loading || serverStatus !== "ready" || !isFormValid()}
+              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold py-4 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" /> Processando...
+                </>
+              ) : (
+                <>
+                  <Send className="w-5 h-5" />{" "}
+                  {mode === "files" ? "Analisar Arquivo" : "Classificar Emails"}
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         <div className="lg:col-span-5 space-y-6">
