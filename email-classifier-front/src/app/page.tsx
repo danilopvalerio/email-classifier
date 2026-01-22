@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   Trash2,
@@ -16,10 +16,13 @@ import {
   Linkedin,
   Briefcase,
   ExternalLink,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+// --- Tipos ---
 type AppMode = "single" | "batch" | "csv";
 
 type EmailForm = {
@@ -55,10 +58,19 @@ function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
 }
 
+// IMPORTANTE: Em produção, mude isso para a URL do seu Render
+// Ex: const API_BASE = "https://seu-app.onrender.com";
+const API_BASE = "http://127.0.0.1:8000";
+
 export default function Home() {
   const [mode, setMode] = useState<AppMode>("single");
   const [loading, setLoading] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+
+  // Estados de "Warm-up" do Servidor
+  const [serverStatus, setServerStatus] = useState<
+    "checking" | "ready" | "error"
+  >("checking");
 
   const [cards, setCards] = useState<EmailForm[]>([
     { id: "1", subject: "", body: "", senderName: "" },
@@ -71,6 +83,28 @@ export default function Home() {
   });
 
   const [results, setResults] = useState<AnalysisResult[]>([]);
+
+  // --- Efeito de Aquecimento (Warm-up) ---
+  useEffect(() => {
+    const wakeUpServer = async () => {
+      try {
+        // Faz uma requisição leve para a rota raiz apenas para acordar o Render
+        const res = await fetch(`${API_BASE}/`);
+        if (res.ok) {
+          setServerStatus("ready");
+          // Esconde o status de "Online" após 3 segundos para limpar a tela
+          setTimeout(() => setServerStatus("checking"), 500000); // Hack visual: deixa sumir só se mudar estado
+        } else {
+          setServerStatus("error");
+        }
+      } catch (error) {
+        console.error("Servidor dormindo ou erro de conexão:", error);
+        setServerStatus("error");
+      }
+    };
+
+    wakeUpServer();
+  }, []);
 
   // --- Helpers ---
   const addCard = () =>
@@ -106,7 +140,7 @@ export default function Home() {
       let headers: HeadersInit = {};
 
       if (mode === "single") {
-        url = "http://127.0.0.1:8000/analysis/process";
+        url = `${API_BASE}/analysis/process`;
         const formData = new FormData();
         formData.append("subject", singleForm.subject);
         let finalBody = singleForm.body;
@@ -115,7 +149,7 @@ export default function Home() {
         formData.append("text", finalBody);
         body = formData;
       } else if (mode === "batch") {
-        url = "http://127.0.0.1:8000/analysis/batch-json";
+        url = `${API_BASE}/analysis/batch-json`;
         headers = { "Content-Type": "application/json" };
         body = JSON.stringify(
           cards.map((c, i) => ({
@@ -132,7 +166,7 @@ export default function Home() {
           setLoading(false);
           return;
         }
-        url = "http://127.0.0.1:8000/analysis/bulk";
+        url = `${API_BASE}/analysis/bulk`;
         const formData = new FormData();
         formData.append("file", csvFile);
         body = formData;
@@ -140,7 +174,8 @@ export default function Home() {
 
       const res = await fetch(url, { method: "POST", headers, body: body! });
 
-      // Lógica de Tipagem Segura
+      if (!res.ok) throw new Error("Falha na requisição");
+
       if (mode === "single") {
         const data = (await res.json()) as SingleApiResponse;
         if (data.success) {
@@ -148,7 +183,7 @@ export default function Home() {
             {
               id: "single",
               category: data.data.category,
-              suggested_response: data.data.suggested_response, // Garantido!
+              suggested_response: data.data.suggested_response,
               original_subject: singleForm.subject,
             },
           ]);
@@ -157,16 +192,44 @@ export default function Home() {
         const data = (await res.json()) as BatchApiResponse;
         setResults(data.results || []);
       }
+
+      // Se a requisição funcionou, o servidor com certeza está online
+      setServerStatus("ready");
     } catch (error) {
       console.error(error);
-      alert("Erro ao conectar com API.");
+      alert(
+        "Erro ao conectar com API. O servidor pode estar acordando, tente novamente em 30 segundos.",
+      );
+      setServerStatus("error");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-200 selection:bg-blue-500/30 font-sans pb-24 relative">
+    <main className="min-h-screen bg-slate-950 text-slate-200 selection:bg-blue-500/30 font-sans pb-24 relative overflow-x-hidden">
+      {/* --- STATUS BAR FLUTUANTE (WARM UP) --- */}
+      <div className="fixed top-24 right-4 z-50 pointer-events-none">
+        {serverStatus === "checking" && (
+          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-md animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Iniciando Servidor...
+          </div>
+        )}
+        {serverStatus === "ready" && (
+          <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-md shadow-[0_0_15px_rgba(16,185,129,0.2)] animate-in fade-in slide-in-from-top-2 duration-500">
+            <Wifi className="w-3 h-3" />
+            Sistema Online
+          </div>
+        )}
+        {serverStatus === "error" && (
+          <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-md">
+            <WifiOff className="w-3 h-3" />
+            Servidor Offline
+          </div>
+        )}
+      </div>
+
       <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -300,7 +363,11 @@ export default function Home() {
 
           <button
             onClick={handleSubmit}
-            disabled={loading || (mode === "csv" && !csvFile)}
+            disabled={
+              loading ||
+              (mode === "csv" && !csvFile) ||
+              serverStatus === "checking"
+            }
             className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold py-4 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale"
           >
             {loading ? (
