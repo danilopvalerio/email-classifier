@@ -24,7 +24,7 @@ import { ResultList } from "./../components/ResultList";
 import { StatusBar } from "./../components/StatusBar";
 import { Footer } from "./../components/Footer";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+const API_BASE = "http://127.0.0.1:8000";
 
 export default function Home() {
   const [mode, setMode] = useState<AppMode>("single");
@@ -120,8 +120,9 @@ export default function Home() {
 
   const handleSubmit = async () => {
     if (!isFormValid()) return;
-    setLoading(true);
+
     setResults([]);
+    setLoading(true);
 
     try {
       let url = "";
@@ -159,8 +160,10 @@ export default function Home() {
       const res = await fetch(url, { method: "POST", headers, body: body! });
       if (!res.ok) throw new Error("Erro na requisição");
 
+      const rawData = await res.json();
+
       if (mode === "single") {
-        const data = (await res.json()) as SingleApiResponse;
+        const data = rawData as SingleApiResponse;
         if (data.success) {
           setResults([
             {
@@ -168,30 +171,36 @@ export default function Home() {
               category: data.data.category,
               suggested_response: data.data.suggested_response,
               original_subject: singleForm.subject,
-              original_preview: singleForm.body,
+              original_preview: data.data.original_body || singleForm.body,
             },
           ]);
         }
       } else {
-        const data = (await res.json()) as BatchApiResponse;
+        const data = rawData as BatchApiResponse;
 
-        // ALTERAÇÃO AQUI:
-        // No modo Batch, usamos o state 'cards' como fonte da verdade do texto original.
-        // No modo Files, usamos o 'original_preview' que vem da API (já que não temos o texto no state).
-        const mappedResults = data.results.map((res, index) => {
-          const bodyFromContext =
-            mode === "batch" ? cards[index]?.body : undefined;
-          return {
-            ...res,
-            original_preview: bodyFromContext || res.original_preview,
-          };
-        });
+        // Mapeamento com Tipagem Estrita
+        const mappedResults: AnalysisResult[] = data.results.map(
+          (r: AnalysisResult, index: number) => {
+            // Lógica de Prioridade de Texto:
+            // 1. Se for arquivo: Usa EXCLUSIVAMENTE o que veio do backend (r.original_preview)
+            // 2. Se for manual: Usa o input do card (cards[index].body) ou fallback
+            const previewText =
+              mode === "files"
+                ? r.original_preview
+                : cards[index]?.body || r.original_preview;
+
+            return {
+              ...r,
+              original_preview: previewText,
+            };
+          },
+        );
 
         setResults(mappedResults);
       }
       setServerStatus("ready");
     } catch (error) {
-      alert("Erro ao processar: " + error);
+      alert("Erro ao processar. " + error);
     } finally {
       setLoading(false);
     }

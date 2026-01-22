@@ -9,5 +9,5 @@ class EmailInput(BaseModel):
 class AnalysisResult(BaseModel):
     category: str
     suggested_response: str
-    body: Optional[str] = None
+    original_body: Optional[str] = None
     confidence: float | None = None

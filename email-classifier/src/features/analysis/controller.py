@@ -16,13 +16,11 @@ class AnalysisController:
         final_response = []
 
         try:
-            # --- Lógica de CSV ---
             if filename.endswith('.csv'):
                 try:
                     df = pd.read_csv(io.BytesIO(content_bytes))
                     cols_lower = [c.lower() for c in df.columns]
                     
-                    # Tenta achar colunas compatíveis
                     possible_body = ['corpo', 'mensagem', 'body', 'text', 'conteudo', 'email']
                     col_body = next((df.columns[i] for i, c in enumerate(cols_lower) if c in possible_body), None)
                     
@@ -39,22 +37,19 @@ class AnalysisController:
                         subj_text = str(row[col_subj]) if col_subj else "Sem Assunto"
                         inputs.append(EmailInput(id=str(idx + 1), subject=subj_text, body=body_text))
 
-                    # O CSV usa analyze_batch_json que retorna "suggested_response"
                     results = await self.service.analyze_batch_json(inputs)
 
                     for inp, res in zip(inputs, results):
                         final_response.append({
                             "id": inp.id,
                             "original_subject": inp.subject,
-                            # ALTERAÇÃO AQUI: Enviamos o corpo completo, não cortado
-                            "original_preview": inp.body, 
+                            "original_preview": res.get("original_body") or inp.body, 
                             "category": res.get("category"),
                             "suggested_response": res.get("suggested_response")
                         })
                 except Exception as e:
                     raise HTTPException(400, f"Erro ao ler CSV: {str(e)}")
 
-            # --- Lógica de PDF ---
             elif filename.endswith('.pdf'):
                 try:
                     full_text = ""
@@ -77,7 +72,6 @@ class AnalysisController:
                         final_response.append({
                             "id": f"pdf-{i+1}",
                             "original_subject": res.get("subject"),
-                            # A IA já retorna o trecho identificado como preview/body
                             "original_preview": res.get("original_preview"), 
                             "category": res.get("category"),
                             "suggested_response": res.get("response") 
@@ -87,7 +81,6 @@ class AnalysisController:
                 except Exception as e:
                     raise HTTPException(400, f"Erro ao processar PDF: {str(e)}")
 
-            # --- Lógica de TXT ---
             elif filename.endswith('.txt'):
                 try:
                     full_text = content_bytes.decode("utf-8")

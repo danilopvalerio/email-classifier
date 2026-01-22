@@ -28,7 +28,7 @@ export function ResultList({ results, loading }: ResultListProps) {
 
       {results.map((result, idx) => (
         <div
-          key={idx}
+          key={result.id || idx}
           className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg hover:border-slate-700 transition-colors animate-in fade-in slide-in-from-bottom-3"
         >
           <div className="flex items-start justify-between mb-4 pb-3 border-b border-slate-800/50">

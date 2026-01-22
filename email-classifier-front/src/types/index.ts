@@ -20,6 +20,7 @@ export type SingleApiResponse = {
   data: {
     category: string;
     suggested_response: string;
+    original_body?: string;
     confidence?: number;
   };
 };
