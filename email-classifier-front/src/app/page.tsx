@@ -29,6 +29,8 @@ export default function Home() {
   const [mode, setMode] = useState<AppMode>("single");
   const [loading, setLoading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+
+  // Estado para controlar a conexão com o servidor
   const [serverStatus, setServerStatus] = useState<
     "checking" | "ready" | "error"
   >("checking");
@@ -44,22 +46,36 @@ export default function Home() {
   });
   const [results, setResults] = useState<AnalysisResult[]>([]);
 
+  // Lógica de Health Check
   useEffect(() => {
-    const wakeUpServer = async () => {
+    // Definimos a função de checagem
+    const checkHealth = async () => {
       try {
-        const res = await fetch(`${API_BASE}/`);
+        const res = await fetch(`${API_BASE}/analysis/health`);
         if (res.ok) {
           setServerStatus("ready");
-          setTimeout(() => setServerStatus("checking"), 500000);
         } else {
           setServerStatus("error");
         }
       } catch (error) {
+        console.error("Falha ao conectar com o servidor:", error);
         setServerStatus("error");
       }
     };
-    wakeUpServer();
-  }, []);
+
+    // Chamada imediata ao montar
+    checkHealth();
+
+    // CORREÇÃO: Usar const diretamente para o intervalo
+    const intervalId = setInterval(() => {
+      if (serverStatus !== "ready") {
+        checkHealth();
+      }
+    }, 5000);
+
+    // Cleanup
+    return () => clearInterval(intervalId);
+  }, [serverStatus]);
 
   const addCard = () =>
     setCards([
@@ -152,7 +168,8 @@ export default function Home() {
       setServerStatus("ready");
     } catch (error) {
       alert("Erro ao processar: " + error);
-      setServerStatus("error");
+      // Se deu erro na requisição principal, pode ser que o server caiu
+      setServerStatus("checking");
     } finally {
       setLoading(false);
     }
@@ -246,7 +263,7 @@ export default function Home() {
 
           <button
             onClick={handleSubmit}
-            disabled={loading || serverStatus === "checking" || !isFormValid()}
+            disabled={loading || serverStatus !== "ready" || !isFormValid()}
             className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold py-4 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale"
           >
             {loading ? (

@@ -59,3 +59,8 @@ async def process_batch_json(emails: List[EmailInput]):
 @router.post("/file-upload")
 async def process_file_upload(file: UploadFile = File(...)):
     return await controller.parse_and_process_file(file)
+
+@router.get("/health")
+async def health_check():
+    """Rota leve para verificar se a API está online."""
+    return {"status": "ok", "message": "Service is ready"}
