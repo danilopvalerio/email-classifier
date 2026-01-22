@@ -168,12 +168,17 @@ export default function Home() {
               category: data.data.category,
               suggested_response: data.data.suggested_response,
               original_subject: singleForm.subject,
+              original_preview: singleForm.body,
             },
           ]);
         }
       } else {
         const data = (await res.json()) as BatchApiResponse;
-        setResults(data.results || []);
+        const mappedResults = data.results.map((res, index) => ({
+          ...res,
+          original_preview: cards[index]?.body || res.original_preview,
+        }));
+        setResults(mappedResults);
       }
       setServerStatus("ready");
     } catch (error) {
@@ -186,13 +191,11 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-200 font-sans pb-24 relative overflow-x-hidden">
       <StatusBar status={serverStatus} />
-
       <Header
         mode={mode}
         setMode={setMode}
         resetResults={() => setResults([])}
       />
-
       <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-7 space-y-6">
           <div className="flex items-center justify-between">
@@ -213,7 +216,6 @@ export default function Home() {
               </button>
             )}
           </div>
-
           <div className="space-y-4">
             {mode === "single" && (
               <EmailCard
@@ -222,7 +224,6 @@ export default function Home() {
                 isSingle={true}
               />
             )}
-
             {mode === "batch" &&
               cards.map((card, index) => (
                 <div
@@ -239,7 +240,6 @@ export default function Home() {
                   />
                 </div>
               ))}
-
             {mode === "files" && (
               <div className="bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-xl p-10 flex flex-col items-center justify-center text-center hover:border-purple-500/50 hover:bg-slate-900 transition-all group">
                 <div className="bg-slate-800 p-4 rounded-full mb-4 group-hover:scale-110 transition-transform duration-300">
@@ -267,7 +267,6 @@ export default function Home() {
               </div>
             )}
           </div>
-
           {serverStatus === "error" ? (
             <button
               onClick={handleManualRetry}
@@ -295,7 +294,6 @@ export default function Home() {
             </button>
           )}
         </div>
-
         <div className="lg:col-span-5 space-y-6">
           <h2 className="text-lg font-semibold flex items-center gap-2 text-white">
             <Bot className="w-5 h-5 text-emerald-400" /> Resultados da IA
