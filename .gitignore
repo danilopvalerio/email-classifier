@@ -1,0 +1,78 @@
+# --- GERAL & SISTEMA OPERACIONAL ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+*.csv
+
+# --- BACKEND (Python / FastAPI / Poetry) ---
+# Byte-compiled / Optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ctypes
+*.so
+
+# Distribution / Packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments (Onde as bibliotecas ficam)
+.venv/
+venv/
+ENV/
+env/
+
+# Poetry
+# Mantenha o poetry.lock! Não ignore ele.
+
+# Environment Variables (MUITO IMPORTANTE - Protege sua API KEY)
+.env
+.env.backup
+.env.production
+
+# Logs específicos do backend
+app.log
+
+# --- FRONTEND (Node / Next.js) ---
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Next.js build output
+.next/
+out/
+
+# Production build output
+build/
+
+# Environment local variables (Next.js)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts

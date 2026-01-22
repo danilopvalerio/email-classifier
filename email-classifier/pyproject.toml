@@ -1,0 +1,36 @@
+[tool.poetry]
+package-mode = false
+
+[project]
+name = "email-classifier"
+version = "1.0.0"
+description = "API de Classificação de Emails com IA Generativa"
+authors = [
+    {name = "Danilo Valério", email = "seu.email@exemplo.com"}
+]
+requires-python = ">=3.13,<4.0"
+dependencies = [
+    "fastapi (>=0.128.0,<0.129.0)",
+    "uvicorn (>=0.40.0,<0.41.0)",
+    "python-multipart (>=0.0.21,<0.0.22)",
+    "python-dotenv (>=1.2.1,<2.0.0)",
+    "openai (>=2.15.0,<3.0.0)",
+    "nltk (>=3.9.2,<4.0.0)",
+    "pandas (>=2.2.0,<3.0.0)"
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.taskipy.tasks]
+dev = "uvicorn src.main:app --reload"
+run = "uvicorn src.main:app --host 0.0.0.0 --port 10000"
+test = "pytest -v"
+
+[dependency-groups]
+dev = [
+    "taskipy (>=1.14.1,<2.0.0)",
+    "pytest (>=9.0.2,<10.0.0)",
+    "httpx (>=0.28.1,<0.29.0)"
+]
