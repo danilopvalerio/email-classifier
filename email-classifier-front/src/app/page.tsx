@@ -44,9 +44,8 @@ export default function Home() {
   });
   const [results, setResults] = useState<AnalysisResult[]>([]);
 
+  // LÓGICA DE HEALTH CHECK (Tentativa infinita a cada 10s)
   useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 30;
     let timeoutId: NodeJS.Timeout;
     let isMounted = true;
 
@@ -56,23 +55,22 @@ export default function Home() {
 
         if (res.ok) {
           if (isMounted) setServerStatus("ready");
+          // Sucesso! Não chamamos o timeout novamente, paramos aqui.
           return;
         } else {
           throw new Error("Status not ok");
         }
       } catch {
-        // CORREÇÃO: Removemos o '(error)' aqui para evitar o erro de linter
-        attempts++;
-        if (attempts < maxAttempts) {
-          if (isMounted) {
-            timeoutId = setTimeout(checkHealth, 2000);
-          }
-        } else {
-          if (isMounted) setServerStatus("error");
+        // Se der erro (servidor offline ou acordando):
+        if (isMounted) {
+          // Mantém como 'checking' (ou mude para 'error' se quiser feedback visual imediato)
+          // Tenta novamente em 10 segundos (10000 ms)
+          timeoutId = setTimeout(checkHealth, 10000);
         }
       }
     };
 
+    // Primeira chamada imediata
     checkHealth();
 
     return () => {
