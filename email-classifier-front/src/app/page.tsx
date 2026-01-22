@@ -29,8 +29,6 @@ export default function Home() {
   const [mode, setMode] = useState<AppMode>("single");
   const [loading, setLoading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-
-  // Estado para controlar a conexão com o servidor
   const [serverStatus, setServerStatus] = useState<
     "checking" | "ready" | "error"
   >("checking");
@@ -46,36 +44,42 @@ export default function Home() {
   });
   const [results, setResults] = useState<AnalysisResult[]>([]);
 
-  // Lógica de Health Check
   useEffect(() => {
-    // Definimos a função de checagem
+    let attempts = 0;
+    const maxAttempts = 30;
+    let timeoutId: NodeJS.Timeout;
+    let isMounted = true;
+
     const checkHealth = async () => {
       try {
         const res = await fetch(`${API_BASE}/analysis/health`);
+
         if (res.ok) {
-          setServerStatus("ready");
+          if (isMounted) setServerStatus("ready");
+          return;
         } else {
-          setServerStatus("error");
+          throw new Error("Status not ok");
         }
-      } catch (error) {
-        console.error("Falha ao conectar com o servidor:", error);
-        setServerStatus("error");
+      } catch {
+        // CORREÇÃO: Removemos o '(error)' aqui para evitar o erro de linter
+        attempts++;
+        if (attempts < maxAttempts) {
+          if (isMounted) {
+            timeoutId = setTimeout(checkHealth, 2000);
+          }
+        } else {
+          if (isMounted) setServerStatus("error");
+        }
       }
     };
 
-    // Chamada imediata ao montar
     checkHealth();
 
-    // CORREÇÃO: Usar const diretamente para o intervalo
-    const intervalId = setInterval(() => {
-      if (serverStatus !== "ready") {
-        checkHealth();
-      }
-    }, 5000);
-
-    // Cleanup
-    return () => clearInterval(intervalId);
-  }, [serverStatus]);
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   const addCard = () =>
     setCards([
@@ -168,8 +172,6 @@ export default function Home() {
       setServerStatus("ready");
     } catch (error) {
       alert("Erro ao processar: " + error);
-      // Se deu erro na requisição principal, pode ser que o server caiu
-      setServerStatus("checking");
     } finally {
       setLoading(false);
     }
@@ -186,7 +188,6 @@ export default function Home() {
       />
 
       <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Esquerda: Inputs */}
         <div className="lg:col-span-7 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold flex items-center gap-2 text-white">
@@ -279,7 +280,6 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Direita: Resultados */}
         <div className="lg:col-span-5 space-y-6">
           <h2 className="text-lg font-semibold flex items-center gap-2 text-white">
             <Bot className="w-5 h-5 text-emerald-400" /> Resultados da IA

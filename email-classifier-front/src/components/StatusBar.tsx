@@ -12,16 +12,17 @@ export function StatusBar({ status }: StatusBarProps) {
     let interval: NodeJS.Timeout;
 
     if (status === "checking") {
-      // Iniciamos o intervalo. Não zeramos aqui para evitar o erro síncrono.
+      // Inicia o contador
       interval = setInterval(() => {
         setSeconds((prev) => prev + 1);
       }, 1000);
     }
 
-    // Função de limpeza: roda quando o status muda ou o componente desmonta
+    // CLEANUP: Quando o status muda (para ready ou error) ou o componente desmonta,
+    // paramos o timer e zeramos. Isso evita o erro de setState e prepara para a próxima.
     return () => {
       clearInterval(interval);
-      setSeconds(0); // Reseta aqui! Assim, na próxima vez estará 0.
+      setSeconds(0);
     };
   }, [status]);
 
