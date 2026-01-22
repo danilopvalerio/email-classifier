@@ -32,7 +32,8 @@ class AnalysisService:
         full_content = f"Assunto: {subject}\nMensagem: {body}"
         
         prompt = """
-        Você é um assistente responsável por classificar emails corporativos.  Atue como Danilo Valério.
+        Você é um assistente responsável por classificar emails corporativos. 
+        Coloque Atenciosamente, [Seu nome] no final das respostas.
         Analise o email fornecido e classifique-o exclusivamente como "Produtivo" 
         ou "Improdutivo". 
 
