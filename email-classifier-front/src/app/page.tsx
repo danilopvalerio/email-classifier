@@ -10,7 +10,7 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
-  FileSpreadsheet,
+  FileText,
   UploadCloud,
   Github,
   Linkedin,
@@ -22,8 +22,7 @@ import {
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-// --- Tipos ---
-type AppMode = "single" | "batch" | "csv";
+type AppMode = "single" | "batch" | "files";
 
 type EmailForm = {
   id: string;
@@ -50,7 +49,8 @@ type SingleApiResponse = {
 };
 
 type BatchApiResponse = {
-  total: number;
+  total?: number;
+  total_processed?: number;
   results: AnalysisResult[];
 };
 
@@ -58,16 +58,12 @@ function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
 }
 
-// IMPORTANTE: Em produção, mude isso para a URL do seu Render
-// Ex: const API_BASE = "https://seu-app.onrender.com";
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+const API_BASE = "http://127.0.0.1:8000";
 
 export default function Home() {
   const [mode, setMode] = useState<AppMode>("single");
   const [loading, setLoading] = useState(false);
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-
-  // Estados de "Warm-up" do Servidor
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [serverStatus, setServerStatus] = useState<
     "checking" | "ready" | "error"
   >("checking");
@@ -84,29 +80,43 @@ export default function Home() {
 
   const [results, setResults] = useState<AnalysisResult[]>([]);
 
-  // --- Efeito de Aquecimento (Warm-up) ---
   useEffect(() => {
     const wakeUpServer = async () => {
       try {
-        // Faz uma requisição leve para a rota raiz apenas para acordar o Render
         const res = await fetch(`${API_BASE}/`);
         if (res.ok) {
           setServerStatus("ready");
-          // Esconde o status de "Online" após 3 segundos para limpar a tela
-          setTimeout(() => setServerStatus("checking"), 500000); // Hack visual: deixa sumir só se mudar estado
+          setTimeout(() => setServerStatus("checking"), 500000);
         } else {
           setServerStatus("error");
         }
       } catch (error) {
-        console.error("Servidor dormindo ou erro de conexão:", error);
+        console.error(error);
         setServerStatus("error");
       }
     };
-
     wakeUpServer();
   }, []);
 
-  // --- Helpers ---
+  // --- Validação do Formulário ---
+  const isFormValid = () => {
+    if (mode === "single") {
+      // Verifica se Assunto e Corpo estão preenchidos (Remetente é opcional)
+      return singleForm.subject.trim() !== "" && singleForm.body.trim() !== "";
+    }
+    if (mode === "batch") {
+      // Verifica se TODOS os cards têm Assunto e Corpo preenchidos
+      return cards.every(
+        (card) => card.subject.trim() !== "" && card.body.trim() !== "",
+      );
+    }
+    if (mode === "files") {
+      // Verifica se há um arquivo selecionado
+      return uploadFile !== null;
+    }
+    return false;
+  };
+
   const addCard = () =>
     setCards([
       ...cards,
@@ -125,12 +135,13 @@ export default function Home() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setCsvFile(e.target.files[0]);
+      setUploadFile(e.target.files[0]);
     }
   };
 
-  // --- Envio ---
   const handleSubmit = async () => {
+    if (!isFormValid()) return; // Proteção extra
+
     setLoading(true);
     setResults([]);
 
@@ -160,21 +171,24 @@ export default function Home() {
               : c.body,
           })),
         );
-      } else if (mode === "csv") {
-        if (!csvFile) {
-          alert("Selecione um arquivo CSV primeiro.");
+      } else if (mode === "files") {
+        if (!uploadFile) {
+          alert("Selecione um arquivo primeiro.");
           setLoading(false);
           return;
         }
-        url = `${API_BASE}/analysis/bulk`;
+        url = `${API_BASE}/analysis/file-upload`;
         const formData = new FormData();
-        formData.append("file", csvFile);
+        formData.append("file", uploadFile);
         body = formData;
       }
 
       const res = await fetch(url, { method: "POST", headers, body: body! });
 
-      if (!res.ok) throw new Error("Falha na requisição");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Erro na requisição");
+      }
 
       if (mode === "single") {
         const data = (await res.json()) as SingleApiResponse;
@@ -193,13 +207,10 @@ export default function Home() {
         setResults(data.results || []);
       }
 
-      // Se a requisição funcionou, o servidor com certeza está online
       setServerStatus("ready");
     } catch (error) {
       console.error(error);
-      alert(
-        "Erro ao conectar com API. O servidor pode estar acordando, tente novamente em 30 segundos.",
-      );
+      alert("Erro ao processar: " + error);
       setServerStatus("error");
     } finally {
       setLoading(false);
@@ -208,24 +219,24 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-200 selection:bg-blue-500/30 font-sans pb-24 relative overflow-x-hidden">
-      {/* --- STATUS BAR FLUTUANTE (WARM UP) --- */}
+      {/* STATUS BAR */}
       <div className="fixed top-24 right-4 z-50 pointer-events-none">
         {serverStatus === "checking" && (
-          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-md animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-md animate-pulse">
             <Loader2 className="w-3 h-3 animate-spin" />
-            Iniciando Servidor...
+            Conectando...
           </div>
         )}
         {serverStatus === "ready" && (
-          <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-md shadow-[0_0_15px_rgba(16,185,129,0.2)] animate-in fade-in slide-in-from-top-2 duration-500">
+          <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-md animate-in fade-in slide-in-from-top-2">
             <Wifi className="w-3 h-3" />
-            Sistema Online
+            Online
           </div>
         )}
         {serverStatus === "error" && (
           <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-md">
             <WifiOff className="w-3 h-3" />
-            Servidor Offline
+            Offline
           </div>
         )}
       </div>
@@ -250,7 +261,7 @@ export default function Home() {
             {[
               { id: "single", label: "Individual", icon: Mail },
               { id: "batch", label: "Manual (Lote)", icon: Plus },
-              { id: "csv", label: "Upload CSV", icon: FileSpreadsheet },
+              { id: "files", label: "Arquivos", icon: FileText },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -285,15 +296,16 @@ export default function Home() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* LADO ESQUERDO: Inputs */}
         <div className="lg:col-span-7 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold flex items-center gap-2 text-white">
-              {mode === "csv" ? (
-                <FileSpreadsheet className="w-5 h-5 text-green-400" />
+              {mode === "files" ? (
+                <FileText className="w-5 h-5 text-purple-400" />
               ) : (
                 <Mail className="w-5 h-5 text-blue-400" />
               )}
-              {mode === "csv" ? "Importar Planilha" : "Entrada de Dados"}
+              {mode === "files" ? "Upload de Arquivo" : "Entrada de Dados"}
             </h2>
             {mode === "batch" && (
               <button
@@ -331,31 +343,31 @@ export default function Home() {
                 </div>
               ))}
 
-            {mode === "csv" && (
-              <div className="bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-xl p-10 flex flex-col items-center justify-center text-center hover:border-blue-500/50 hover:bg-slate-900 transition-all group">
+            {mode === "files" && (
+              <div className="bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-xl p-10 flex flex-col items-center justify-center text-center hover:border-purple-500/50 hover:bg-slate-900 transition-all group">
                 <div className="bg-slate-800 p-4 rounded-full mb-4 group-hover:scale-110 transition-transform duration-300">
-                  <UploadCloud className="w-8 h-8 text-blue-400" />
+                  <UploadCloud className="w-8 h-8 text-purple-400" />
                 </div>
                 <h3 className="text-lg font-medium text-white mb-2">
-                  Arraste seu CSV aqui
+                  Envie seu arquivo
                 </h3>
-                <p className="text-sm text-slate-400 mb-6 max-w-xs">
-                  Certifique-se que o arquivo tenha colunas como
-                  &quot;assunto&quot; e &quot;corpo&quot;.
+                <p className="text-sm text-slate-400 mb-6 max-w-xs leading-relaxed">
+                  Suporta <strong>.PDF, .TXT e .CSV</strong>.<br />A IA
+                  detectará automaticamente se há um ou múltiplos emails.
                 </p>
 
                 <input
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.txt,.pdf"
                   onChange={handleFileChange}
                   className="hidden"
-                  id="csv-upload"
+                  id="file-upload"
                 />
                 <label
-                  htmlFor="csv-upload"
-                  className="cursor-pointer bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/20"
+                  htmlFor="file-upload"
+                  className="cursor-pointer bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-purple-500/20"
                 >
-                  {csvFile ? csvFile.name : "Selecionar Arquivo"}
+                  {uploadFile ? uploadFile.name : "Selecionar Arquivo"}
                 </label>
               </div>
             )}
@@ -363,11 +375,7 @@ export default function Home() {
 
           <button
             onClick={handleSubmit}
-            disabled={
-              loading ||
-              (mode === "csv" && !csvFile) ||
-              serverStatus === "checking"
-            }
+            disabled={loading || serverStatus === "checking" || !isFormValid()}
             className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold py-4 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale"
           >
             {loading ? (
@@ -378,12 +386,13 @@ export default function Home() {
             ) : (
               <>
                 <Send className="w-5 h-5" />
-                {mode === "csv" ? "Processar Arquivo" : "Classificar Emails"}
+                {mode === "files" ? "Analisar Arquivo" : "Classificar Emails"}
               </>
             )}
           </button>
         </div>
 
+        {/* LADO DIREITO (Resultados) */}
         <div className="lg:col-span-5 space-y-6">
           <h2 className="text-lg font-semibold flex items-center gap-2 text-white">
             <Bot className="w-5 h-5 text-emerald-400" />
@@ -460,39 +469,21 @@ export default function Home() {
           <span className="text-sm text-slate-300 font-medium whitespace-nowrap">
             Danilo Pedro da Silva Valério
           </span>
-
           <div className="hidden md:block w-px h-4 bg-slate-700" />
-
           <div className="flex items-center gap-4">
             <a
               href="https://www.linkedin.com/in/danilo-valério"
               target="_blank"
-              rel="noopener noreferrer"
-              className="text-slate-400 hover:text-[#0A66C2] transition-colors"
-              title="LinkedIn"
+              className="text-slate-400 hover:text-[#0A66C2]"
             >
               <Linkedin className="w-5 h-5" />
             </a>
-
             <a
               href="https://github.com/danilopvalerio/"
               target="_blank"
-              rel="noopener noreferrer"
-              className="text-slate-400 hover:text-white transition-colors"
-              title="GitHub"
+              className="text-slate-400 hover:text-white"
             >
               <Github className="w-5 h-5" />
-            </a>
-
-            <div className="w-px h-4 bg-slate-700 md:hidden" />
-
-            <a
-              href="https://dvalerio-portfolio.vercel.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex md:hidden items-center gap-2 text-emerald-400 text-xs font-bold uppercase"
-            >
-              Portfolio
             </a>
           </div>
         </div>

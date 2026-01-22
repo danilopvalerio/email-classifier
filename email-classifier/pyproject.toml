@@ -16,7 +16,9 @@ dependencies = [
     "python-dotenv (>=1.2.1,<2.0.0)",
     "openai (>=2.15.0,<3.0.0)",
     "nltk (>=3.9.2,<4.0.0)",
-    "pandas (>=2.2.0,<3.0.0)"
+    "pandas (>=2.2.0,<3.0.0)",
+    "pypdf (>=6.6.0,<7.0.0)",
+    "pdfplumber (>=0.11.9,<0.12.0)"
 ]
 
 [build-system]
