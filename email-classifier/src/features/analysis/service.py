@@ -18,6 +18,9 @@ except LookupError:
 class AnalysisService:
     def __init__(self):
         self.client = AsyncOpenAI(
+            # Utilizamos o SDK da OpenAI por ser o padrão de mercado (OpenAI-compatible).
+            # Redirecionamos a 'base_url' para a Groq para consumir os modelos Llama 3 
+            # mantendo a mesma estrutura de código e facilidade de migração entre provedores.
             base_url="https://api.groq.com/openai/v1",
             api_key=os.getenv("GROQ_API_KEY")
         )
@@ -39,7 +42,7 @@ class AnalysisService:
         Classifique como Improdutivo se o email for:
         - PESQUISAS: NPS, Satisfação, Feedback de banco/loja, "Quero te ouvir", "Sua opinião importa".
         - MARKETING: Ofertas, Newsletters, Promoções, Convites para eventos/webinars.
-        - SOCIAL/RH: Aniversários, Avisos gerais (ex: "Bolo na copa"), Agradecimentos simples.
+        - SOCIAL: Aniversários, Avisos gerais (ex: "Bolo na copa"), Agradecimentos simples.
         - NOTIFICAÇÕES: Avisos automáticos de sistema sem erro crítico.
         - Qualquer tipo de pesquisa de banco(bank) ou de alguma empresa.
         *** IMPORTANTE: Mesmo que o email peça uma resposta ou diga "é urgente", se for uma Pesquisa ou Marketing, é Improdutivo. ***
@@ -50,6 +53,10 @@ class AnalysisService:
         - Problemas financeiros reais (Notas Fiscais, Pagamentos atrasados).
         - Erros técnicos críticos reportados por clientes ou monitoramento.
         - Contato direto de ser humano sobre projeto em andamento.
+        - Solicitações Administrativas/RH: Férias, Folha de Ponto, Benefícios, Atestados.
+        - Financeiro: Notas Fiscais, Cobranças, Reembolsos.
+        - Técnico: Report de erros, Bugs, Queda de servidor.
+        - Projetos: Dúvidas sobre tarefas, Prazos, Aprovações.
 
         EXEMPLOS DE APRENDIZADO (Use como base):
         
@@ -64,6 +71,12 @@ class AnalysisService:
         Exemplo 3 (Will Bank/Bancos) -> [IMPRODUTIVO]:
         "Assunto: Danilo, quero te ouvir / Corpo: Estou enviando de novo porque é importante te ouvir. Responda nossa pesquisa."
         -> Motivo: Engenharia social de marketing. Não é urgente de verdade. NEGUE pesquisas de qualquer tipo, mesmo que tenham palavras de urgência.
+
+        EXEMPLOS DE AJUSTE FINO:
+        1. "Gostaria de solicitar férias para Outubro" -> [PRODUTIVO] (Processo de RH).
+        2. "Vamos no bar hoje?" -> [IMPRODUTIVO] (Social).
+        3. "Quero te ouvir! Responda a pesquisa" -> [IMPRODUTIVO] (Pesquisa externa).
+        4. "Erro 500 na API" -> [PRODUTIVO] (Técnico).
 
         Se o email for classificado como Produtivo, 
         gere uma resposta formal, clara e objetiva, adequada ao ambiente corporativo. 
